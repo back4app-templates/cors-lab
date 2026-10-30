@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>cors-lab — Local Network Access (R9′)</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <h1>R9′ — current Chrome Local Network Access</h1>
+  <p>
+    This page records four things separately, per amendment B1: the LNA permission state, the browser
+    version, whether this page is a secure context, and the ordinary CORS outcome of the same request.
+    It promises nothing about any fix — the outcome per permission state is <strong>to capture</strong>.
+    The target is the local relay (<code id="relay-url"></code>), which answers GET with
+    <code>Access-Control-Allow-Origin: *</code> and does not handle OPTIONS. If the browser blocks the
+    request before sending it, the relay's stdout shows <em>no</em> log line — that absence is evidence.
+  </p>
+  <pre id="env"></pre>
+  <p>
+    <button id="run-lna">Fetch the relay</button>
+    <button id="run-lna-xsite" title="targetAddressSpace hint variant">Fetch with targetAddressSpace:'local'</button>
+  </p>
+  <pre id="out"></pre>
+  <script src="/config.js"></script>
+  <script>
+    const env = document.getElementById('env');
+    const out = document.getElementById('out');
+    document.getElementById('relay-url').textContent = LAB.relay;
+
+    async function report() {
+      const lines = [
+        `page origin:        ${location.origin}`,
+        `secure context:     ${window.isSecureContext}`,
+        `userAgent:          ${navigator.userAgent}`,
+      ];
+      if (navigator.userAgentData) {
+        lines.push(`userAgentData:      ${JSON.stringify(navigator.userAgentData.brands)}`);
+        try {
+          const hi = await navigator.userAgentData.getHighEntropyValues(['fullVersionList']);
+          lines.push(`fullVersionList:    ${JSON.stringify(hi.fullVersionList)}`);
+        } catch (e) { lines.push(`fullVersionList:    (unavailable: ${e.name}: ${e.message})`); }
+      }
+      // Permission names vary across releases; try the candidates and print EXACTLY what the browser says.
+      for (const name of ['local-network-access', 'local-network']) {
+        try {
+          const st = await navigator.permissions.query({ name });
+          lines.push(`permissions.query({name:'${name}'}): state=${st.state}`);
+        } catch (e) {
+          lines.push(`permissions.query({name:'${name}'}): ${e.name}: ${e.message}`);
+        }
+      }
+      env.textContent = lines.join('\n');
+    }
+    report();
+
+    async function go(init, label) {
+      const cid = `lna-${Date.now().toString(36)}`;
+      out.textContent = `running ${label} (cid=${cid} — check the relay stdout for it)…\n`;
+      const t0 = performance.now();
+      try {
+        const res = await fetch(`${LAB.relay}/ping?cid=${cid}`, init);
+        const body = await res.text();
+        out.textContent += `RESOLVED in ${(performance.now() - t0).toFixed(1)} ms\nstatus: ${res.status} · type: ${res.type}\nbody: ${body}`;
+      } catch (e) {
+        out.textContent += `REJECTED in ${(performance.now() - t0).toFixed(1)} ms\n${e.name}: ${e.message}`;
+      }
+      await report(); // permission state may have changed after the prompt
+    }
+    document.getElementById('run-lna').onclick = () => go({}, 'plain fetch');
+    document.getElementById('run-lna-xsite').onclick = () => {
+      // targetAddressSpace is a hint some Chrome versions accept; if this browser rejects the option,
+      // the error below is itself a capture.
+      go({ targetAddressSpace: 'local' }, "fetch with targetAddressSpace:'local'");
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>cors-lab</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <h1>cors-lab — one button per failure</h1>
+  <p id="whoami"></p>
+  <p>
+    Each button fires one labeled <code>fetch</code> with a fresh correlation id (<code>cid</code>, a query
+    param — never a header, so it cannot change the request's CORS classification), prints exactly what
+    <code>fetch</code> saw, then asks the API's <code>/__state</code> what the <em>server</em> logged for
+    that cid. "The preflight blocked it (no main request executed)" and "it ran and the browser hid the
+    answer" are different outcomes and are reported separately.
+    Other fixtures: <a href="/timing.html">timing series</a> · <a href="/lna.html">Local Network Access</a>
+    · <a href="/mixed.html">mixed content</a>.
+  </p>
+  <div id="cookie-setup"></div>
+  <table id="cases"><thead><tr><th>Row</th><th>One factor changed</th><th></th><th>What fetch saw</th><th>What the server logged</th></tr></thead><tbody></tbody></table>
+  <script src="/config.js"></script>
+  <script src="/lab.js"></script>
+</body>
+</html>

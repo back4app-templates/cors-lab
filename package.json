@@ -1,0 +1,22 @@
+{
+  "name": "cors-lab",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Companion lab for the Back4app blog post on fixing CORS errors: one Express API where every route is the correct configuration with exactly one factor changed, a static page origin that fires each failure, and wire-level evidence that separates 'the preflight blocked it' from 'the server ran it and the browser hid the answer'.",
+  "license": "MIT",
+  "author": "Back4app Engineering",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "cert": "node scripts/make-cert.mjs",
+    "pretest": "node scripts/evidence.mjs --reset",
+    "test": "node --test --test-concurrency=1 test/*.test.mjs",
+    "posttest": "node scripts/evidence.mjs"
+  },
+  "dependencies": {
+    "express": "^5.3.0"
+  }
+}

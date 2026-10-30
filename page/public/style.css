@@ -1,0 +1,10 @@
+body { font: 15px/1.45 system-ui, sans-serif; margin: 1.5rem auto; max-width: 70rem; padding: 0 1rem; }
+code, pre { font: 13px/1.4 ui-monospace, monospace; }
+table { border-collapse: collapse; width: 100%; }
+th, td { border: 1px solid #ccc; padding: .4rem .5rem; text-align: left; vertical-align: top; }
+td.out { white-space: pre-wrap; font: 12px/1.4 ui-monospace, monospace; max-width: 24rem; }
+button { font: inherit; padding: .2rem .6rem; }
+.rejected { color: #b00020; }
+.resolved { color: #006400; }
+.exec-yes { background: #fff3cd; }
+.exec-no { background: #e2e3e5; }

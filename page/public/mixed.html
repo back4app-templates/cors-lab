@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>cors-lab — mixed content look-alike</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <h1>Mixed content (https page → http API) — look-alike fixture</h1>
+  <p>
+    Open this page on the https origin (<code>https://localhost:1349</code>, after <code>npm run cert</code>).
+    The default target <code>http://127.0.0.1:1345/ok</code> has this https origin in its CORS allowlist, so
+    the one changed factor is the TARGET'S scheme. Note: browsers treat loopback addresses as potentially
+    trustworthy, so an http loopback target may NOT trigger mixed-content blocking — whatever happens is the
+    capture; to force a non-loopback cell, put this machine's LAN IP in the box (e.g.
+    <code>http://192.168.x.y:1345/ok</code> — that origin must then be added to ALLOWED_ORIGINS, and the API
+    reached via the LAN name, which stays on this machine).
+  </p>
+  <pre id="env"></pre>
+  <p><input id="target" size="50"> <button id="run-mixed">Fetch target</button></p>
+  <pre id="out"></pre>
+  <script src="/config.js"></script>
+  <script>
+    document.getElementById('env').textContent =
+      `page origin: ${location.origin}\nsecure context: ${window.isSecureContext}\nuserAgent: ${navigator.userAgent}`;
+    const input = document.getElementById('target');
+    input.value = 'http://127.0.0.1:1345/ok';
+    document.getElementById('run-mixed').onclick = async () => {
+      const out = document.getElementById('out');
+      const cid = `mixed-${Date.now().toString(36)}`;
+      const sep = input.value.includes('?') ? '&' : '?';
+      out.textContent = `fetching ${input.value} (cid=${cid})…\n`;
+      try {
+        const res = await fetch(`${input.value}${sep}cid=${cid}`);
+        out.textContent += `RESOLVED\nstatus: ${res.status} · type: ${res.type}\nbody: ${(await res.text()).slice(0, 300)}`;
+      } catch (e) {
+        out.textContent += `REJECTED\n${e.name}: ${e.message}`;
+      }
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>cors-lab — preflight-tax series (§6.1 / B4)</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <h1>Preflight-tax series</h1>
+  <p>Three SEPARATE series (amendment B4), each with its own sample count and warm-up policy:</p>
+  <ul>
+    <li><strong>simple</strong> — GET <code>/timing/simple</code>, same URL; house rule: 20 warm-ups discarded, 100 timed.</li>
+    <li><strong>preflight-cached</strong> — JSON POST <code>/timing/preflight?maxage=600</code>, same URL every
+      sample so <code>Access-Control-Max-Age</code> caches the preflight after the first; 20 warm-ups
+      (which deliberately warm the cache) discarded, 100 timed. The count of OPTIONS requests observed is
+      read from the API's <code>/__state</code> counters before/after.</li>
+    <li><strong>cold</strong> — ONE preflighted JSON POST per fresh browser context, no <code>maxage</code>,
+      and <em>no warm-ups: the house 20-warm-up rule is waived for this series because it would erase
+      exactly the cost under study</em>. Use <code>?series=cold&amp;autorun=1</code>: the capture driver
+      launches a fresh context per sample and scrapes <code>#result</code>. Running cold samples by
+      clicking inside one warm page does NOT produce the cold series.</li>
+  </ul>
+  <p>No claim about the browser's maximum preflight-cache lifetime is made from these runs; only cache
+     behaviour observed within the stated run window is reported.</p>
+  <p>
+    <button id="run-simple">Run simple (20+100)</button>
+    <button id="run-cached">Run preflight-cached (20+100)</button>
+    <button id="run-cold">Run ONE cold sample (this context)</button>
+  </p>
+  <pre id="result"></pre>
+  <textarea id="csv" rows="12" cols="80" placeholder="series,sample,ms (timed samples only)"></textarea>
+  <script src="/config.js"></script>
+  <script>
+    const result = document.getElementById('result');
+    const csv = document.getElementById('csv');
+    const q = new URLSearchParams(location.search);
+
+    function pct(sorted, p) { return sorted[Math.min(sorted.length - 1, Math.floor((p / 100) * sorted.length))]; }
+
+    async function sample(series, i, unique) {
+      const cid = `tim-${series}-${i}-${Date.now().toString(36)}`;
+      const t0 = performance.now();
+      let res;
+      if (series === 'simple') {
+        res = await fetch(`${LAB.api}/timing/simple?cid=${cid}`);
+      } else if (series === 'preflight-cached') {
+        // The preflight cache is keyed by the full URL, so every sample of the CACHED series must use
+        // one IDENTICAL URL — no per-sample cid here; correlation comes from the counters before/after.
+        res = await fetch(`${LAB.api}/timing/preflight?maxage=600`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+        });
+      } else {
+        // cold samples vary the URL so no earlier preflight cache entry can ever match
+        res = await fetch(`${LAB.api}/timing/preflight?cid=${cid}${unique ? `&u=${cid}` : ''}`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+        });
+      }
+      await res.json();
+      return performance.now() - t0;
+    }
+
+    async function counters() {
+      const r = await fetch(`${LAB.api}/__state`);
+      return (await r.json()).counters;
+    }
+
+    async function runSeries(series, warmups, timed) {
+      result.textContent = `running ${series}: ${warmups} warm-ups + ${timed} timed…`;
+      const before = await counters();
+      for (let i = 0; i < warmups; i++) await sample(series, `w${i}`, false);
+      const samples = [];
+      for (let i = 0; i < timed; i++) samples.push(await sample(series, i, false));
+      const after = await counters();
+      const sorted = [...samples].sort((a, b) => a - b);
+      const summary = {
+        series, warmupsDiscarded: warmups, timed,
+        p50: +pct(sorted, 50).toFixed(2), p95: +pct(sorted, 95).toFixed(2),
+        min: +sorted[0].toFixed(2), max: +sorted[sorted.length - 1].toFixed(2),
+        apiCountersBefore: before, apiCountersAfter: after,
+      };
+      result.textContent = JSON.stringify(summary, null, 2);
+      csv.value += samples.map((ms, i) => `${series},${i},${ms.toFixed(2)}`).join('\n') + '\n';
+      return summary;
+    }
+
+    async function runCold() {
+      result.textContent = 'running ONE cold sample (no warm-up — waiver stated above)…';
+      const ms = await sample('cold', 0, true);
+      const out = { series: 'cold', sample: 0, ms: +ms.toFixed(2), note: 'one sample per fresh browser context; driver aggregates' };
+      result.textContent = JSON.stringify(out, null, 2);
+      csv.value += `cold,0,${ms.toFixed(2)}\n`;
+    }
+
+    document.getElementById('run-simple').onclick = () => runSeries('simple', 20, 100);
+    document.getElementById('run-cached').onclick = () => runSeries('preflight-cached', 20, 100);
+    document.getElementById('run-cold').onclick = runCold;
+
+    if (q.get('autorun') === '1') {
+      const s = q.get('series') || 'cold';
+      if (s === 'cold') runCold();
+      else runSeries(s, Number(q.get('warmups') ?? 20), Number(q.get('n') ?? 100));
+    }
+  </script>
+</body>
+</html>
